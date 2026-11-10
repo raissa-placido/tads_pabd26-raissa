@@ -56,5 +56,61 @@ select get_customer_total_spent(-1);
 select get_customer_total_spent(9999);
 
 -- Função que retorna quantos filmes tem duração entre valores A e B?
+drop function if exists get_film_count;
+create or replace function get_film_count(
+    p_len_from int,
+    p_len_to int
+)
+returns int
+language plpgsql
+as
+$$
+declare
+    v_film_count int;
+begin
+    if (p_len_from is null or 
+        p_len_to is null or 
+        p_len_from < 0 or 
+        p_len_to < 0 or 
+        p_len_from > p_len_to
+    ) then
+        raise exception 'Parâmetros inválidos: A = %, B = %', p_len_from, p_len_to;
+    end if;
+
+    select count(*) 
+    into v_film_count
+    from film 
+    where length between p_len_from and p_len_to;
+
+    return v_film_count;
+end;
+$$;
+
+select get_film_count(90, 120);
+select get_film_count(120, 90);
+select get_film_count(-10, null);
 
 -- Função que retorna quais filmes tem duração entre valores A e B?
+drop function if exists get_films_by_length;
+create or replace function get_films_by_length(
+    p_len_from film.length%TYPE,
+    p_len_to film.length%TYPE
+)
+returns
+table(
+    film_id film.film_id%TYPE,
+    title film.title%TYPE,
+    length film.length%TYPE
+)
+language plpgsql
+as
+$$
+begin
+    return query
+    select f.film_id, f.title, f.length from film f
+    where f.length between p_len_from and p_len_to
+    order by f.length, f.title desc;
+end;
+$$;
+
+select * from get_films_by_length(90::smallint, 120::smallint);
