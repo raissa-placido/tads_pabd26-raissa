@@ -46,10 +46,9 @@ class CustomerViewSet(ReadOnlyListViewSet):
     def total_spent(self, request, pk=None):
         customer = self.get_object()
         total_spent = services.customer_total_spent(customer.customer_id)
-        return Response({
-            "customer_id": customer.customer_id,
-            "total_spent": total_spent
-        })
+        return Response(
+            {"customer_id": customer.customer_id, "total_spent": total_spent}
+        )
 
 
 class CustomerSpendingViewSet(ReadOnlyListViewSet):
@@ -61,11 +60,22 @@ class FilmViewSet(ReadOnlyListViewSet):
     queryset = models.Film.objects.all()
     serializer_class = serializers.FilmSerializer
 
+    def _validated_length_range(self, request):
+        # request.query_params contém os parâmetros enviados na URL
+        query_serializer = serializers.FilmLengthRangeSerializer(
+            data=request.query_params
+        )
+        query_serializer.is_valid(raise_exception=True)
+        return query_serializer.validated_data
+
     # api/films/by-length/?len_from=90&len_to=120
     @action(detail=False, methods=["get"], url_path="by-length")
     def by_length(self, request):
-        # TO DO: Criar serializer
-        films = services.films_by_length(len_from, len_to)
+        length_range = self._validated_length_range(request)
+        films = services.films_by_length(
+            length_range["len_from"], length_range["len_to"]
+        )
+        return Response(films)
 
 
 class FilmActorViewSet(ReadOnlyListViewSet):
@@ -96,6 +106,18 @@ class PaymentViewSet(ReadOnlyListViewSet):
 class RentalViewSet(ReadOnlyListViewSet):
     queryset = models.Rental.objects.all()
     serializer_class = serializers.RentalSerializer
+
+    @action(detail=False, methods=["post"], url_path="register")
+    def register(self, request):
+        input_serializer = serializers.RegisterRentalSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+
+        services.register_rental_with_payment(**input_serializer.validated_data)
+
+        return Response(
+            {"detail": "Aluguel registrado!"},
+            status=201,
+        )
 
 
 class StaffViewSet(ReadOnlyListViewSet):
